@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniMath: Grade 5-6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* slate-900 */
+            color: #f8fafc; /* slate-50 */
+        }
+        .math-font {
+            font-family: 'Fira Code', monospace;
+        }
+        sup {
+            font-size: 0.6em;
+            color: #38bdf8; /* sky-400 */
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            50% { transform: translateX(6px); }
+            75% { transform: translateX(-6px); }
+        }
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        
+        @keyframes pulse-border {
+            0%, 100% { border-color: #10b981; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { border-color: #34d399; box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        }
+        .correct-pulse {
+            animation: pulse-border 1.5s infinite;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+
+        .streak-glow {
+            text-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px rgba(245, 158, 11, 0.5); }
+            to { text-shadow: 0 0 20px rgba(245, 158, 11, 1), 0 0 30px rgba(245, 158, 11, 0.8); }
+        }
+
+        /* Fire Streak Vibe */
+        .fire-text {
+            background-image: linear-gradient(to top, #fbbf24, #ef4444);
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: 900;
+        }
+        @keyframes flicker {
+            0% { opacity: 1; transform: scale(1) translateY(0); }
+            25% { opacity: 0.8; transform: scale(1.05) translateY(-2px); }
+            50% { opacity: 0.9; transform: scale(0.95) translateY(1px); }
+            75% { opacity: 1; transform: scale(1.02) translateY(-1px); }
+            100% { opacity: 0.85; transform: scale(1) translateY(0); }
+        }
+        .fire-flicker {
+            animation: flicker 0.15s infinite alternate;
+            display: inline-block;
+        }
+        .intense-fire-glow {
+            text-shadow: 0 0 15px rgba(239, 68, 68, 0.8), 0 -10px 25px rgba(245, 158, 11, 0.9);
+            animation: glow 0.8s ease-in-out infinite alternate;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+
+    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left Column: Main Game Area -->
+        <div class="lg:col-span-2 glass-panel rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[700px]">
+            
+            <!-- Header & Stats -->
+            <div class="bg-slate-900/80 p-6 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-sky-400 to-emerald-400 bg-clip-text text-transparent">
+                        OmniMath
+                    </h1>
+                    <p class="text-slate-400 text-sm mt-1">Grades 5 & 6 Edition</p>
+                </div>
+                
+                <div class="flex items-center gap-6 bg-slate-950/50 px-6 py-3 rounded-2xl border border-slate-800">
+                    <div class="flex flex-col items-center">
+                        <span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Streak</span>
+                        <div class="flex items-center gap-1" id="streak-container">
+                            <span id="streak-icon-left" class="text-xl hidden transition-all">🔥</span>
+                            <span id="streak-counter" class="text-2xl font-bold text-sky-400 transition-colors duration-300">0</span>
+                            <span id="streak-icon-right" class="text-xl hidden transition-all">🔥</span>
+                        </div>
+                    </div>
+                    <div class="w-px h-8 bg-slate-800"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Accuracy</span>
+                        <span id="accuracy-counter" class="text-2xl font-bold text-emerald-400">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Difficulty Selector -->
+            <div class="p-4 bg-slate-900/40 border-b border-slate-800 flex flex-wrap justify-center gap-3">
+                <button id="btn-addition" class="px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300">
+                    + Addition
+                </button>
+                <button id="btn-subtraction" class="px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300">
+                    - Subtraction
+                </button>
+                <button id="btn-multiplication" class="px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300">
+                    × Multiplication
+                </button>
+                <button id="btn-division" class="px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300">
+                    ÷ Division
+                </button>
+                <button id="btn-pemdas" class="px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300">
+                    ⚡ PEMDAS
+                </button>
+            </div>
+
+            <!-- Main Problem Area -->
+            <div class="flex-1 p-8 flex flex-col items-center justify-center relative">
+                
+                <!-- Problem Display -->
+                <div id="problem-display" class="math-font text-4xl sm:text-5xl lg:text-6xl tracking-wide text-center leading-tight text-white mb-10 transition-opacity duration-300">
+                    Loading...
+                </div>
+
+                <!-- Input & Actions -->
+                <div class="w-full max-w-md flex flex-col gap-4">
+                    <input 
+                        type="number" 
+                        id="answer-input" 
+                        placeholder="Enter your answer..." 
+                        class="w-full bg-slate-950 border-2 border-slate-700 rounded-2xl text-center text-3xl py-4 text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 transition-colors shadow-inner"
+                        autocomplete="off"
+                        disabled
+                    >
+                    
+                    <div class="flex gap-3">
+                        <button id="submit-btn" class="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-4 px-6 rounded-2xl transition-colors shadow-lg shadow-sky-900/20 disabled:opacity-50" disabled>
+                            Submit
+                        </button>
+                        <button id="give-up-btn" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold py-4 px-6 rounded-2xl transition-colors disabled:opacity-50" disabled>
+                            Reveal
+                        </button>
+                        <button id="next-btn" class="hidden flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-6 rounded-2xl transition-colors shadow-lg shadow-emerald-900/20">
+                            Next Problem ➔
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Feedback Message -->
+                <div id="feedback-msg" class="mt-6 text-lg font-semibold text-center opacity-0 transition-opacity duration-300 h-8">
+                    <!-- Feedback injected here -->
+                </div>
+            </div>
+            
+            <div class="p-4 bg-slate-900/40 text-center text-slate-500 text-xs">
+                Data automatically syncs across refreshes. Order of Operations: P-E-MD-AS. All answers are positive integers.
+            </div>
+        </div>
+
+        <!-- Right Column: History Panel -->
+        <div class="glass-panel rounded-3xl shadow-2xl flex flex-col h-[500px] lg:h-[700px] overflow-hidden">
+            <div class="bg-slate-900/80 p-5 border-b border-slate-800">
+                <h2 class="text-xl font-bold text-slate-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Past Responses
+                </h2>
+                <p class="text-xs text-slate-400 mt-1">Your saved history across sessions</p>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="history-list">
+                <!-- History Items Injected Here -->
+                <div class="text-center text-slate-500 italic mt-10" id="empty-history">
+                    No history yet. Start solving!
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Application Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Firebase Setup ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const app = firebaseConfig ? initializeApp(firebaseConfig) : null;
+        const auth = app ? getAuth(app) : null;
+        const db = app ? getFirestore(app) : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let userId = null;
+        let unsubscribeHistory = null;
+        let authInitialized = false;
+
+        // --- Core Utility Functions ---
+        function rand(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // --- Problem Generators by Difficulty (5th-6th Grade) ---
+        // Guaranteed clean positive integers.
+        const templates = {
+            addition: [
+                () => { // 2 to 3 digit addition
+                    let a=rand(50, 999), b=rand(50, 999); 
+                    return { q: `${a} + ${b}`, a: a+b, plain: `${a} + ${b}` }; 
+                },
+                () => { // 3 terms addition
+                    let a=rand(10, 200), b=rand(10, 200), c=rand(10, 200); 
+                    return { q: `${a} + ${b} + ${c}`, a: a+b+c, plain: `${a} + ${b} + ${c}` }; 
+                }
+            ],
+            subtraction: [
+                () => { // 2 to 3 digit subtraction
+                    let a=rand(100, 999), b=rand(10, a-1); 
+                    return { q: `${a} - ${b}`, a: a-b, plain: `${a} - ${b}` }; 
+                },
+                () => { // Subtracting a sum
+                    let a=rand(100, 500), b=rand(20, 100), c=rand(10, a-b-1); 
+                    return { q: `${a} - ${b} - ${c}`, a: a-b-c, plain: `${a} - ${b} - ${c}` }; 
+                }
+            ],
+            multiplication: [
+                () => { // 2 digit by 1 digit
+                    let a=rand(11, 99), b=rand(3, 9); 
+                    // Randomize order 50%
+                    if (Math.random() > 0.5) return { q: `${a} &times; ${b}`, a: a*b, plain: `${a} × ${b}` };
+                    return { q: `${b} &times; ${a}`, a: a*b, plain: `${b} × ${a}` };
+                },
+                () => { // 2 digit by 2 digit (easy)
+                    let a=rand(10, 30), b=rand(10, 20); 
+                    return { q: `${a} &times; ${b}`, a: a*b, plain: `${a} × ${b}` }; 
+                }
+            ],
+            division: [
+                () => { // Clean division (no remainder) up to 12s tables
+                    let b=rand(2, 12), ans=rand(2, 15), a=b*ans; 
+                    return { q: `${a} &divide; ${b}`, a: ans, plain: `${a} ÷ ${b}` }; 
+                },
+                () => { // Larger clean division (long division basics)
+                    let b=rand(4, 25), ans=rand(10, 40), a=b*ans; 
+                    return { q: `${a} &divide; ${b}`, a: ans, plain: `${a} ÷ ${b}` }; 
+                }
+            ],
+            pemdas: [
+                () => { // a * b + c
+                    let a=rand(2,12), b=rand(2,12), c=rand(5,50); 
+                    return { q: `${a} &times; ${b} + ${c}`, a: a*b+c, plain: `${a} × ${b} + ${c}` }; 
+                },
+                () => { // (a + b) * c
+                    let a=rand(5,20), b=rand(2,10), c=rand(2,6); 
+                    return { q: `(${a} + ${b}) &times; ${c}`, a: (a+b)*c, plain: `(${a} + ${b}) × ${c}` }; 
+                },
+                () => { // a / b + c
+                    let b=rand(2,10), ans=rand(2,10), a=b*ans, c=rand(5,30); 
+                    return { q: `${a} &divide; ${b} + ${c}`, a: ans+c, plain: `${a} ÷ ${b} + ${c}` }; 
+                },
+                () => { // a * (b - c)
+                    let a=rand(2,8), b=rand(10,30), c=rand(2, b-2); 
+                    return { q: `${a} &times; (${b} - ${c})`, a: a*(b-c), plain: `${a} × (${b} - ${c})` }; 
+                },
+                () => { // a^2 + b
+                    let a=rand(3,10), b=rand(5,30); 
+                    return { q: `${a}<sup>2</sup> + ${b}`, a: (a*a)+b, plain: `${a}² + ${b}` }; 
+                },
+                () => { // (a * b) / c (Clean division)
+                    let c=rand(2,8), ans=rand(2,10), ab=c*ans;
+                    let a = rand(2, ab/2);
+                    while(ab % a !== 0) { a++; if(a >= ab) { a=1; break; } }
+                    let b = ab / a;
+                    if(a===1) { a=ab; b=1; }
+                    return { q: `(${a} &times; ${b}) &divide; ${c}`, a: ans, plain: `(${a} × ${b}) ÷ ${c}` };
+                }
+            ]
+        };
+
+        // --- Application State ---
+        let currentDifficulty = 'pemdas';
+        let currentProblem = null;
+        let stats = { streak: 0, correct: 0, total: 0 };
+        let isAnswered = false;
+
+        // --- DOM Elements ---
+        const uiDisplay = document.getElementById('problem-display');
+        const uiInput = document.getElementById('answer-input');
+        const uiSubmit = document.getElementById('submit-btn');
+        const uiGiveUp = document.getElementById('give-up-btn');
+        const uiNext = document.getElementById('next-btn');
+        const uiFeedback = document.getElementById('feedback-msg');
+        const uiStreak = document.getElementById('streak-counter');
+        const uiStreakIconLeft = document.getElementById('streak-icon-left');
+        const uiStreakIconRight = document.getElementById('streak-icon-right');
+        const uiAccuracy = document.getElementById('accuracy-counter');
+        const uiHistoryList = document.getElementById('history-list');
+        const uiEmptyHistory = document.getElementById('empty-history');
+
+        // --- Authentication & DB Init ---
+        const initAuth = async () => {
+            if (!auth) {
+                // No firebase config (e.g. local environment missing env vars)
+                console.warn("Firebase not configured. Using temporary local memory.");
+                authInitialized = true;
+                setDifficulty('pemdas');
+                uiInput.disabled = false;
+                uiSubmit.disabled = false;
+                uiGiveUp.disabled = false;
+                return;
+            }
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch(e) {
+                console.error("Auth error", e);
+                uiDisplay.innerText = "Connection Error.";
+            }
+        };
+
+        if (auth) {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    userId = user.uid;
+                    authInitialized = true;
+                    uiInput.disabled = false;
+                    uiSubmit.disabled = false;
+                    uiGiveUp.disabled = false;
+                    
+                    loadStats();
+                    listenToHistory();
+                    setDifficulty('pemdas'); // Start at pemdas once authed
+                }
+            });
+        }
+
+        initAuth();
+
+        // --- Firestore DB Operations ---
+        async function loadStats() {
+            if (!userId || !db) return;
+            try {
+                const statsRef = doc(db, 'artifacts', appId, 'users', userId, 'stats', 'main');
+                const docSnap = await getDoc(statsRef);
+                if (docSnap.exists()) {
+                    stats = docSnap.data();
+                    updateStatsUI();
+                }
+            } catch (err) {
+                console.error("Error loading stats:", err);
+            }
+        }
+
+        async function saveStats() {
+            if (!userId || !db) return;
+            try {
+                const statsRef = doc(db, 'artifacts', appId, 'users', userId, 'stats', 'main');
+                await setDoc(statsRef, stats);
+            } catch (err) {
+                console.error("Error saving stats:", err);
+            }
+        }
+
+        async function saveHistoryItem(problemPlain, userAns, actualAns, isCorrect) {
+            if (!userId || !db) return;
+            try {
+                const histRef = collection(db, 'artifacts', appId, 'users', userId, 'history');
+                await addDoc(histRef, {
+                    problem: problemPlain,
+                    userAnswer: userAns,
+                    correctAnswer: actualAns,
+                    isCorrect: isCorrect,
+                    timestamp: Date.now()
+                });
+            } catch (err) {
+                console.error("Error saving history:", err);
+            }
+        }
+
+        function listenToHistory() {
+            if (!userId || !db) return;
+            if (unsubscribeHistory) unsubscribeHistory();
+
+            const histRef = collection(db, 'artifacts', appId, 'users', userId, 'history');
+            
+            unsubscribeHistory = onSnapshot(histRef, (snapshot) => {
+                const historyData = [];
+                snapshot.forEach(doc => historyData.push({ id: doc.id, ...doc.data() }));
+                
+                // Sort in memory (Rule 2: Avoid complex queries)
+                historyData.sort((a, b) => b.timestamp - a.timestamp);
+                
+                renderHistoryList(historyData);
+            }, (error) => {
+                console.error("Error listening to history:", error);
+            });
+        }
+
+        // --- Game Logic ---
+        function setDifficulty(level) {
+            currentDifficulty = level;
+            
+            // Update Active Tab Styling
+            const btns = ['addition', 'subtraction', 'multiplication', 'division', 'pemdas'];
+            btns.forEach(b => {
+                const el = document.getElementById(`btn-${b}`);
+                if (b === level) {
+                    el.className = "px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200 bg-sky-600 text-white shadow-lg shadow-sky-900/30";
+                } else {
+                    el.className = "px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300";
+                }
+            });
+
+            generateProblem();
+        }
+
+        function generateProblem() {
+            isAnswered = false;
+            uiInput.value = '';
+            uiInput.disabled = !authInitialized;
+            uiInput.classList.remove('correct-pulse');
+            uiInput.style.borderColor = '#334155'; // reset to slate-700
+            
+            if(authInitialized) uiInput.focus();
+            
+            uiSubmit.classList.remove('hidden');
+            uiGiveUp.classList.remove('hidden');
+            uiNext.classList.add('hidden');
+            
+            uiFeedback.style.opacity = '0';
+            uiDisplay.style.opacity = '0';
+
+            setTimeout(() => {
+                const genList = templates[currentDifficulty];
+                const generator = genList[Math.floor(Math.random() * genList.length)];
+                currentProblem = generator();
+                
+                uiDisplay.innerHTML = currentProblem.q;
+                uiDisplay.style.opacity = '1';
+            }, 200);
+        }
+
+        function checkAnswer() {
+            if (isAnswered || !uiInput.value.trim() || !currentProblem) return;
+            
+            const userAnswer = parseInt(uiInput.value, 10);
+            if (isNaN(userAnswer)) {
+                shakeInput();
+                return;
+            }
+
+            stats.total++;
+            isAnswered = true;
+            uiInput.disabled = true;
+            
+            const isCorrect = (userAnswer === currentProblem.a);
+
+            if (isCorrect) {
+                stats.streak++;
+                stats.correct++;
+                uiInput.classList.add('correct-pulse');
+                uiInput.style.borderColor = '#10b981';
+                showFeedback(`Correct! Great job.`, 'text-emerald-400');
+            } else {
+                stats.streak = 0;
+                shakeInput();
+                uiInput.style.borderColor = '#ef4444';
+                showFeedback(`Incorrect. The answer was ${currentProblem.a}.`, 'text-red-400');
+            }
+
+            // Persistence
+            saveStats();
+            saveHistoryItem(currentProblem.plain, userAnswer, currentProblem.a, isCorrect);
+            
+            updateStatsUI();
+            transitionToNextState();
+        }
+
+        function giveUp() {
+            if (isAnswered || !currentProblem) return;
+            
+            stats.total++;
+            stats.streak = 0;
+            isAnswered = true;
+            
+            uiInput.value = currentProblem.a;
+            uiInput.disabled = true;
+            uiInput.style.borderColor = '#f59e0b'; // amber
+            
+            showFeedback(`Revealed. The answer is ${currentProblem.a}.`, 'text-amber-400');
+            
+            saveStats();
+            saveHistoryItem(currentProblem.plain, "Skipped", currentProblem.a, false);
+            
+            updateStatsUI();
+            transitionToNextState();
+        }
+
+        // --- UI & Helper Functions ---
+        function renderHistoryList(items) {
+            uiHistoryList.innerHTML = '';
+            if (items.length === 0) {
+                uiHistoryList.appendChild(uiEmptyHistory);
+                uiEmptyHistory.style.display = 'block';
+                return;
+            }
+            
+            // Limit to 50 items displayed to avoid heavy DOM
+            const displayItems = items.slice(0, 50);
+
+            displayItems.forEach(item => {
+                const div = document.createElement('div');
+                const isSkip = item.userAnswer === "Skipped";
+                
+                let borderColor = item.isCorrect ? 'border-emerald-500/50 bg-emerald-900/10' : 'border-red-500/50 bg-red-900/10';
+                if (isSkip) borderColor = 'border-amber-500/50 bg-amber-900/10';
+
+                let icon = item.isCorrect 
+                    ? `<svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`
+                    : `<svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+                
+                if (isSkip) {
+                    icon = `<svg class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+                }
+
+                div.className = `p-3 rounded-xl border ${borderColor} flex items-center justify-between transition-colors`;
+                
+                let answerText = `<span class="font-bold ${item.isCorrect ? 'text-emerald-300' : 'text-red-300 line-through mr-2'}">${item.userAnswer}</span>`;
+                if (!item.isCorrect && !isSkip) {
+                    answerText += `<span class="font-bold text-emerald-300">${item.correctAnswer}</span>`;
+                }
+                if (isSkip) {
+                    answerText = `<span class="font-bold text-amber-300">Ans: ${item.correctAnswer}</span>`;
+                }
+
+                div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        ${icon}
+                        <span class="text-slate-200 font-mono text-sm">${item.problem}</span>
+                    </div>
+                    <div class="text-sm font-mono text-right">
+                        ${answerText}
+                    </div>
+                `;
+                uiHistoryList.appendChild(div);
+            });
+        }
+
+        function shakeInput() {
+            uiInput.classList.remove('shake');
+            void uiInput.offsetWidth; // Trigger reflow
+            uiInput.classList.add('shake');
+        }
+
+        function showFeedback(text, colorClass) {
+            uiFeedback.className = `mt-6 text-lg font-semibold text-center transition-opacity duration-300 h-8 ${colorClass}`;
+            uiFeedback.innerText = text;
+            uiFeedback.style.opacity = '1';
+        }
+
+        function transitionToNextState() {
+            uiSubmit.classList.add('hidden');
+            uiGiveUp.classList.add('hidden');
+            uiNext.classList.remove('hidden');
+            uiNext.focus();
+        }
+
+        function updateStatsUI() {
+            uiStreak.innerText = stats.streak;
+            
+            // Streak Fire Effect Logic
+            uiStreak.className = "text-2xl font-bold transition-colors duration-300"; // reset
+            uiStreakIconLeft.classList.add('hidden');
+            uiStreakIconRight.classList.add('hidden');
+            uiStreakIconLeft.classList.remove('fire-flicker');
+            uiStreakIconRight.classList.remove('fire-flicker');
+            
+            if (stats.streak >= 10) {
+                // Intense Fire Level
+                uiStreak.classList.add('fire-text', 'intense-fire-glow');
+                uiStreakIconLeft.classList.remove('hidden');
+                uiStreakIconRight.classList.remove('hidden');
+                uiStreakIconLeft.classList.add('fire-flicker');
+                uiStreakIconRight.classList.add('fire-flicker');
+                uiStreakIconLeft.innerText = "☄️";
+                uiStreakIconRight.innerText = "☄️";
+            } else if (stats.streak >= 5) {
+                // Medium Fire Level
+                uiStreak.classList.add('fire-text', 'streak-glow');
+                uiStreakIconLeft.classList.remove('hidden');
+                uiStreakIconRight.classList.remove('hidden');
+                uiStreakIconLeft.innerText = "🔥";
+                uiStreakIconRight.innerText = "🔥";
+            } else if (stats.streak >= 3) {
+                // Low Fire Level
+                uiStreak.classList.add('text-amber-400', 'streak-glow');
+                uiStreakIconLeft.classList.remove('hidden');
+                uiStreakIconLeft.innerText = "🔥";
+            } else {
+                // No streak
+                uiStreak.classList.add('text-sky-400');
+            }
+
+            const accuracy = stats.total === 0 ? 0 : Math.round((stats.correct / stats.total) * 100);
+            uiAccuracy.innerText = `${accuracy}%`;
+            
+            if (accuracy >= 80) uiAccuracy.className = "text-2xl font-bold text-emerald-400";
+            else if (accuracy >= 50) uiAccuracy.className = "text-2xl font-bold text-amber-400";
+            else uiAccuracy.className = "text-2xl font-bold text-red-400";
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('btn-addition').addEventListener('click', () => setDifficulty('addition'));
+        document.getElementById('btn-subtraction').addEventListener('click', () => setDifficulty('subtraction'));
+        document.getElementById('btn-multiplication').addEventListener('click', () => setDifficulty('multiplication'));
+        document.getElementById('btn-division').addEventListener('click', () => setDifficulty('division'));
+        document.getElementById('btn-pemdas').addEventListener('click', () => setDifficulty('pemdas'));
+        
+        uiSubmit.addEventListener('click', checkAnswer);
+        uiGiveUp.addEventListener('click', giveUp);
+        uiNext.addEventListener('click', generateProblem);
+
+        uiInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') checkAnswer();
+        });
+
+    </script>
+</body>
+</html>
