@@ -246,6 +246,7 @@
         let userId = null;
         let unsubscribeHistory = null;
         let authInitialized = false;
+        let localHistory = [];
 
         // --- Core Utility Functions ---
         function rand(min, max) {
@@ -412,15 +413,49 @@
         const uiDifficultySlider = document.getElementById('difficulty-slider');
         const uiDifficultyLabel = document.getElementById('difficulty-label');
 
+        // --- Local Storage Sync Helpers ---
+        function loadLocalData() {
+            // Load stats locally instantly
+            try {
+                const savedStats = localStorage.getItem(`omnimath_stats_${appId}`);
+                if (savedStats) {
+                    stats = JSON.parse(savedStats);
+                    if (stats.savedLevel !== undefined) {
+                        currentLevelIndex = parseInt(stats.savedLevel, 10);
+                        uiDifficultySlider.value = currentLevelIndex;
+                    }
+                    updateStatsUI();
+                }
+            } catch (e) {
+                console.warn("Could not read local storage stats", e);
+            }
+
+            // Load history locally instantly
+            try {
+                const savedHist = localStorage.getItem(`omnimath_history_${appId}`);
+                if (savedHist) {
+                    localHistory = JSON.parse(savedHist);
+                    renderHistoryList(localHistory);
+                }
+            } catch (e) {
+                console.warn("Could not read local storage history", e);
+            }
+
+            // Always configure difficulty presentation on startup
+            setGameConfigurationPresentation(currentLevelIndex, currentOperation);
+        }
+
         // --- Authentication & DB Init ---
         const initAuth = async () => {
+            // Enable inputs right away so it is always playable
+            uiInput.disabled = false;
+            uiSubmit.disabled = false;
+            uiGiveUp.disabled = false;
+            authInitialized = true;
+
             if (!auth) {
-                console.warn("Firebase not configured. Using temporary local memory.");
-                authInitialized = true;
-                uiInput.disabled = false;
-                uiSubmit.disabled = false;
-                uiGiveUp.disabled = false;
-                setGameConfiguration(2, 'pemdas');
+                console.warn("Firebase not configured. Using standalone local memory mode.");
+                generateProblem();
                 return;
             }
 
@@ -432,7 +467,7 @@
                 }
             } catch(e) {
                 console.error("Auth error", e);
-                uiDisplay.innerText = "Connection Error.";
+                generateProblem();
             }
         };
 
@@ -440,17 +475,14 @@
             onAuthStateChanged(auth, (user) => {
                 if (user) {
                     userId = user.uid;
-                    authInitialized = true;
-                    uiInput.disabled = false;
-                    uiSubmit.disabled = false;
-                    uiGiveUp.disabled = false;
-                    
                     loadStats();
                     listenToHistory();
                 }
             });
         }
 
+        // --- Instant Setup ---
+        loadLocalData();
         initAuth();
 
         // --- Firestore DB Operations ---
@@ -466,15 +498,25 @@
                         uiDifficultySlider.value = currentLevelIndex;
                     }
                     updateStatsUI();
+                    
+                    // Keep local storage synchronized
+                    localStorage.setItem(`omnimath_stats_${appId}`, JSON.stringify(stats));
                 }
-                setGameConfiguration(currentLevelIndex, currentOperation);
+                setGameConfigurationPresentation(currentLevelIndex, currentOperation);
+                generateProblem();
             } catch (err) {
-                console.error("Error loading stats:", err);
-                setGameConfiguration(2, 'pemdas');
+                console.error("Error loading stats from Firebase:", err);
+                generateProblem();
             }
         }
 
         async function saveStats() {
+            // Always save locally immediately
+            try {
+                localStorage.setItem(`omnimath_stats_${appId}`, JSON.stringify(stats));
+            } catch (e) {}
+
+            // Save to Firebase securely
             if (!userId || !db) return;
             try {
                 const statsRef = doc(db, 'artifacts', appId, 'users', userId, 'stats', 'main');
@@ -484,19 +526,29 @@
             }
         }
 
-        async function saveHistoryItem(problemPlain, userAns, actualAns, isCorrect) {
+        async function addHistoryItem(problemPlain, userAns, actualAns, isCorrect) {
+            const newItem = {
+                problem: problemPlain,
+                userAnswer: userAns,
+                correctAnswer: actualAns,
+                isCorrect: isCorrect,
+                timestamp: Date.now()
+            };
+
+            // 1. Instantly update UI and Local Storage for zero-latency feedback
+            localHistory.unshift(newItem);
+            renderHistoryList(localHistory);
+            try {
+                localStorage.setItem(`omnimath_history_${appId}`, JSON.stringify(localHistory.slice(0, 100)));
+            } catch (e) {}
+
+            // 2. Queue Firestore Save in background
             if (!userId || !db) return;
             try {
                 const histRef = collection(db, 'artifacts', appId, 'users', userId, 'history');
-                await addDoc(histRef, {
-                    problem: problemPlain,
-                    userAnswer: userAns,
-                    correctAnswer: actualAns,
-                    isCorrect: isCorrect,
-                    timestamp: Date.now()
-                });
+                await addDoc(histRef, newItem);
             } catch (err) {
-                console.error("Error saving history:", err);
+                console.error("Error saving history to Firebase:", err);
             }
         }
 
@@ -507,20 +559,25 @@
             const histRef = collection(db, 'artifacts', appId, 'users', userId, 'history');
             
             unsubscribeHistory = onSnapshot(histRef, (snapshot) => {
-                const historyData = [];
-                snapshot.forEach(doc => historyData.push({ id: doc.id, ...doc.data() }));
+                const firebaseHistory = [];
+                snapshot.forEach(doc => firebaseHistory.push({ id: doc.id, ...doc.data() }));
                 
                 // Sort by timestamp descending
-                historyData.sort((a, b) => b.timestamp - a.timestamp);
+                firebaseHistory.sort((a, b) => b.timestamp - a.timestamp);
                 
-                renderHistoryList(historyData);
+                // Merge cloud truth and local backup
+                localHistory = firebaseHistory;
+                renderHistoryList(localHistory);
+                try {
+                    localStorage.setItem(`omnimath_history_${appId}`, JSON.stringify(localHistory.slice(0, 100)));
+                } catch(e) {}
             }, (error) => {
                 console.error("Error listening to history:", error);
             });
         }
 
         // --- Game Setup Engine ---
-        function setGameConfiguration(levelIdx, operation) {
+        function setGameConfigurationPresentation(levelIdx, operation) {
             currentLevelIndex = parseInt(levelIdx, 10);
             currentOperation = operation;
             stats.savedLevel = currentLevelIndex;
@@ -540,18 +597,21 @@
                     el.className = "px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 border border-slate-700 hover:bg-slate-800 text-slate-300";
                 }
             });
+        }
 
+        function triggerGameConfiguration(levelIdx, operation) {
+            setGameConfigurationPresentation(levelIdx, operation);
+            saveStats();
             generateProblem();
         }
 
         function generateProblem() {
             isAnswered = false;
             uiInput.value = '';
-            uiInput.disabled = !authInitialized;
+            uiInput.disabled = false;
             uiInput.classList.remove('correct-pulse');
             uiInput.style.borderColor = '#334155'; // reset slate border
-            
-            if(authInitialized) uiInput.focus();
+            uiInput.focus();
             
             uiSubmit.classList.remove('hidden');
             uiGiveUp.classList.remove('hidden');
@@ -601,7 +661,7 @@
 
             // Sync State
             saveStats();
-            saveHistoryItem(currentProblem.plain, userAnswer, currentProblem.a, isCorrect);
+            addHistoryItem(currentProblem.plain, userAnswer, currentProblem.a, isCorrect);
             
             updateStatsUI();
             transitionToNextState();
@@ -621,7 +681,7 @@
             showFeedback(`Answer revealed. It is ${currentProblem.a}.`, 'text-amber-400');
             
             saveStats();
-            saveHistoryItem(currentProblem.plain, "Skipped", currentProblem.a, false);
+            addHistoryItem(currentProblem.plain, "Skipped", currentProblem.a, false);
             
             updateStatsUI();
             transitionToNextState();
@@ -636,6 +696,7 @@
                 return;
             }
             
+            uiEmptyHistory.style.display = 'none';
             const displayItems = items.slice(0, 40);
 
             displayItems.forEach(item => {
@@ -668,7 +729,7 @@
                         ${icon}
                         <span class="text-slate-200 font-mono text-xs sm:text-sm">${item.problem}</span>
                     </div>
-                    <div class="text-sm font-mono text-right">
+                    <div class="text-sm font-mono text-right font-semibold">
                         ${answerText}
                     </div>
                 `;
@@ -740,15 +801,14 @@
 
         // --- Event Listeners ---
         uiDifficultySlider.addEventListener('input', (e) => {
-            setGameConfiguration(e.target.value, currentOperation);
-            saveStats();
+            triggerGameConfiguration(e.target.value, currentOperation);
         });
 
-        document.getElementById('btn-addition').addEventListener('click', () => setGameConfiguration(currentLevelIndex, 'addition'));
-        document.getElementById('btn-subtraction').addEventListener('click', () => setGameConfiguration(currentLevelIndex, 'subtraction'));
-        document.getElementById('btn-multiplication').addEventListener('click', () => setGameConfiguration(currentLevelIndex, 'multiplication'));
-        document.getElementById('btn-division').addEventListener('click', () => setGameConfiguration(currentLevelIndex, 'division'));
-        document.getElementById('btn-pemdas').addEventListener('click', () => setGameConfiguration(currentLevelIndex, 'pemdas'));
+        document.getElementById('btn-addition').addEventListener('click', () => triggerGameConfiguration(currentLevelIndex, 'addition'));
+        document.getElementById('btn-subtraction').addEventListener('click', () => triggerGameConfiguration(currentLevelIndex, 'subtraction'));
+        document.getElementById('btn-multiplication').addEventListener('click', () => triggerGameConfiguration(currentLevelIndex, 'multiplication'));
+        document.getElementById('btn-division').addEventListener('click', () => triggerGameConfiguration(currentLevelIndex, 'division'));
+        document.getElementById('btn-pemdas').addEventListener('click', () => triggerGameConfiguration(currentLevelIndex, 'pemdas'));
         
         uiSubmit.addEventListener('click', checkAnswer);
         uiGiveUp.addEventListener('click', giveUp);
